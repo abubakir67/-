@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full bg-slate-900 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoGuide Naryn AI - Hackathon MVP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS & JS for Interactive Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        naryn: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                            accent: '#0284c7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        #leaflet-map {
+            width: 100%;
+            height: 100%;
+            min-height: 380px;
+            border-radius: 0.75rem;
+            z-index: 1;
+        }
+        .leaflet-popup-content-wrapper {
+            background-color: #0f172a;
+            color: #f1f5f9;
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+        }
+        .leaflet-popup-tip {
+            background-color: #0f172a;
+        }
+    </style>
+</head>
+<body class="h-full font-sans antialiased bg-slate-950 text-slate-100 flex flex-col justify-between">
+
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">EcoGuide Naryn AI</h1>
+                    <p class="text-xs text-slate-400">Хакатон «Сделаем Нарын лучше»</p>
+                </div>
+            </div>
+
+            <!-- Eco Coins Counter -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-950/80 border border-emerald-500/30 px-3 py-1.5 rounded-full flex items-center space-x-2">
+                    <i class="fa-solid fa-coins text-amber-400 animate-pulse"></i>
+                    <span id="eco-coin-balance" class="font-bold text-emerald-400 text-sm">150</span>
+                    <span class="text-xs text-slate-400">EcoCoins</span>
+                </div>
+                <button onclick="switchTab('profile')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                    <i class="fa-solid fa-user"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 py-6 flex-1 w-full flex flex-col">
+
+        <div class="grid grid-cols-3 gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 mb-6">
+            <button id="tab-btn-guide" onclick="switchTab('guide')" class="tab-btn py-2.5 px-4 rounded-xl font-medium text-sm transition flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-lg">
+                <i class="fa-solid fa-compass"></i>
+                <span>ИИ-Гид</span>
+            </button>
+            <button id="tab-btn-scanner" onclick="switchTab('scanner')" class="tab-btn py-2.5 px-4 rounded-xl font-medium text-sm transition flex items-center justify-center space-x-2 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-camera-retro"></i>
+                <span>Eco-Сканер</span>
+            </button>
+            <button id="tab-btn-map" onclick="switchTab('map')" class="tab-btn py-2.5 px-4 rounded-xl font-medium text-sm transition flex items-center justify-center space-x-2 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span>Интерактивная Карта</span>
+            </button>
+        </div>
+
+        <section id="tab-guide" class="tab-content flex-1 flex flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 md:p-6 backdrop-blur">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                <div class="flex items-center space-x-2">
+                    <span class="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                    <h2 class="font-semibold text-slate-200">Умный Гид по Нарыну & UCA</h2>
+                </div>
+                <!-- Language Selector -->
+                <select id="guide-lang" class="bg-slate-800 border border-slate-700 text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500">
+                    <option value="kg">Кыргызча</option>
+                    <option value="ru" selected>Русский</option>
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                </select>
+            </div>
+
+            <!-- Quick Suggestions -->
+            <div class="flex overflow-x-auto space-x-2 pb-3 mb-2 no-scrollbar">
+                <button onclick="sendQuickPrompt('Расскажи про кампус Университета Центральной Азии (UCA) в Нарыне!')" class="whitespace-nowrap px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg border border-slate-700 transition">
+                    🏛️ О кампусе UCA
+                </button>
+                <button onclick="sendQuickPrompt('Как доехать до Таш-Рабата и какова история каньонов Нарына?')" class="whitespace-nowrap px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg border border-slate-700 transition">
+                    🏔️ Маршрут на Таш-Рабат
+                </button>
+                <button onclick="sendQuickPrompt('Где студенту и туристу поесть национальной кухни в Нарыне?')" class="whitespace-nowrap px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg border border-slate-700 transition">
+                    🍲 Нарынский Бешбармак
+                </button>
+            </div>
+
+            <!-- Chat History Area -->
+            <div id="chat-box" class="flex-1 overflow-y-auto space-y-4 pr-1 min-h-[280px] max-h-[420px]">
+                <!-- Bot Welcome Message -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-xs shrink-0 text-white font-bold">AI</div>
+                    <div class="bg-slate-800 border border-slate-700/60 rounded-2xl rounded-tl-none p-3.5 text-sm text-slate-200 max-w-[85%] leading-relaxed">
+                        Салам! Я твой ИИ-гид по Нарыну и кампусу UCA. Спроси меня о легендах региона, маршрутах на Сон-Кёль, студенческой жизни или где найти лучшую лапшу!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input Bar -->
+            <div class="mt-4 pt-3 border-t border-slate-800 flex items-center space-x-2">
+                <input id="chat-input" type="text" placeholder="Задайте вопрос гиду (например, про UCA или Сон-Кёль)..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition" onkeypress="if(event.key === 'Enter') handleChatSubmit()">
+                
+                <button id="voice-btn" onclick="toggleVoiceRecording()" title="Голосовой ввод" class="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition flex items-center justify-center">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+
+                <button onclick="handleChatSubmit()" class="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-600/30 transition flex items-center justify-center">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="tab-scanner" class="tab-content hidden flex-1 flex flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 md:p-6 backdrop-blur">
+            <div class="text-center mb-6">
+                <h2 class="text-xl font-bold text-slate-100 mb-1">Eco-Guard AI Scanner</h2>
+                <p class="text-xs text-slate-400">Сфотографируйте мусор или уборку территории. ИИ распознает типы отходов и начислит EcoCoins!</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
+                <!-- Camera / Upload Area -->
+                <div class="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-emerald-500/50 rounded-2xl p-6 bg-slate-950/50 transition relative overflow-hidden group">
+                    <input type="file" id="image-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    
+                    <div id="upload-placeholder" class="text-center cursor-pointer" onclick="document.getElementById('image-upload').click()">
+                        <div class="w-16 h-16 bg-slate-800 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition">
+                            <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                        </div>
+                        <p class="text-sm font-medium text-slate-300 mb-1">Загрузите или сделайте фото</p>
+                        <p class="text-xs text-slate-500">Поддерживаются JPG, PNG (Пластик, Стекло, Металл)</p>
+                    </div>
+
+                    <img id="image-preview" class="hidden w-full h-64 object-cover rounded-xl border border-slate-800" alt="Preview">
+                    
+                    <!-- Scanning Beam Animation -->
+                    <div id="scan-bar" class="hidden absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-cyan-400 shadow-[0_0_15px_#10b981] animate-pulse"></div>
+                </div>
+
+                <!-- AI Analysis Result Panel -->
+                <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-semibold text-slate-300 text-sm mb-3 border-b border-slate-800 pb-2 flex items-center justify-between">
+                            <span>Результат ИИ-Анализа</span>
+                            <span id="scan-status" class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">Ожидание...</span>
+                        </h3>
+
+                        <div id="analysis-empty" class="text-center py-10 text-slate-500 text-sm">
+                            <i class="fa-solid fa-microchip text-3xl mb-2 opacity-40"></i>
+                            <p>Загрузите фото для автоматического определения пластика, стекла или металла.</p>
+                        </div>
+
+                        <div id="analysis-results" class="hidden space-y-3">
+                            <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                                <span class="text-xs text-slate-400">Категория:</span>
+                                <span id="res-category" class="text-sm font-bold text-emerald-400">Пластик (PET)</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                                <span class="text-xs text-slate-400">Оценка объема:</span>
+                                <span id="res-volume" class="text-sm font-semibold text-slate-200">~ 3 бут. (Средняя степень)</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                                <span class="text-xs text-slate-400">Геолокация:</span>
+                                <span id="res-location" class="text-xs font-mono text-cyan-400">41.4285° N, 75.9872° E (UCA Campus)</span>
+                            </div>
+                            <div class="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-lg flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-award text-amber-400 text-lg"></i>
+                                    <span class="text-xs text-slate-300">Награда за фиксацию:</span>
+                                </div>
+                                <span id="res-reward" class="font-bold text-emerald-400">+50 EcoCoins</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="claim-btn" disabled onclick="claimReward()" class="w-full py-3 bg-slate-800 text-slate-500 font-bold rounded-xl transition cursor-not-allowed">
+                        Подтвердить и получить награду
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-map" class="tab-content hidden flex-1 flex flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 md:p-6 backdrop-blur">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                <div>
+                    <h2 class="font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-map text-emerald-400"></i> Интерактивная Карта Города Нарын
+                    </h2>
+                    <p class="text-xs text-slate-400">Интерактивные точки: кампус UCA, достопримечательности и экологические зоны</p>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs">
+                    <span class="flex items-center space-x-1.5 bg-emerald-950/80 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        <span class="text-emerald-300">Эко-зона / Чисто</span>
+                    </span>
+                    <span class="flex items-center space-x-1.5 bg-amber-950/80 border border-amber-500/30 px-2.5 py-1 rounded-lg">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        <span class="text-amber-300">Нужна уборка</span>
+                    </span>
+                    <span class="flex items-center space-x-1.5 bg-sky-950/80 border border-sky-500/30 px-2.5 py-1 rounded-lg">
+                        <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                        <span class="text-sky-300">Локации & UCA</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Leaflet Container -->
+            <div class="flex-1 bg-slate-950 border border-slate-800 rounded-xl relative overflow-hidden min-h-[380px]">
+                <div id="leaflet-map"></div>
+            </div>
+        </section>
+
+        <section id="tab-profile" class="tab-content hidden flex-1 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 md:p-6 backdrop-blur">
+            <h2 class="font-bold text-slate-100 text-lg mb-4">Магазин Наград & Скидок Naryn Eco</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Reward Item 1 -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                    <div>
+                        <div class="w-10 h-10 bg-amber-500/10 text-amber-400 rounded-lg flex items-center justify-center mb-3 text-lg">
+                            <i class="fa-solid fa-mug-hot"></i>
+                        </div>
+                        <h3 class="font-semibold text-slate-200 text-sm">Скидка 20% в Coffee Naryn</h3>
+                        <p class="text-xs text-slate-400 mt-1">Купон на горячий кофе для студентов и волонтеров.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                        <span class="text-xs font-bold text-amber-400">100 EcoCoins</span>
+                        <button onclick="redeemOffer(100)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition">Обменять</button>
+                    </div>
+                </div>
+
+                <!-- Reward Item 2 -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                    <div>
+                        <div class="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-lg flex items-center justify-center mb-3 text-lg">
+                            <i class="fa-solid fa-shirt"></i>
+                        </div>
+                        <h3 class="font-semibold text-slate-200 text-sm">Эко-мерч UCA Naryn</h3>
+                        <p class="text-xs text-slate-400 mt-1">Фирменный худи или эко-сумка с символикой проекта.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                        <span class="text-xs font-bold text-amber-400">300 EcoCoins</span>
+                        <button onclick="redeemOffer(300)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition">Обменять</button>
+                    </div>
+                </div>
+
+                <!-- Reward Item 3 -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                    <div>
+                        <div class="w-10 h-10 bg-cyan-500/10 text-cyan-400 rounded-lg flex items-center justify-center mb-3 text-lg">
+                            <i class="fa-solid fa-mountain-sun"></i>
+                        </div>
+                        <h3 class="font-semibold text-slate-200 text-sm">Скидка 15% на Тур в Таш-Рабат</h3>
+                        <p class="text-xs text-slate-400 mt-1">Эксклюзивный трансфер от партнеров CBT Naryn.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                        <span class="text-xs font-bold text-amber-400">250 EcoCoins</span>
+                        <button onclick="redeemOffer(250)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition">Обменять</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Global App State
+        let currentBalance = 150;
+        let isRecording = false;
+        let mapInstance = null;
+
+        // Coordinates for Naryn locations
+        const NARYN_COORDS = [41.4285, 75.9872]; // Naryn center
+        const mapPoints = [
+            {
+                title: "Университет Центральной Азии (UCA)",
+                coords: [41.4367, 75.9585],
+                category: "education",
+                desc: "Кампус UCA в Нарыне — международный академический хаб. Статус экологии: Идеально чисто.",
+                icon: "graduation-cap",
+                color: "#0284c7"
+            },
+            {
+                title: "Берег реки Нарын (Субботник)",
+                coords: [41.4240, 75.9720],
+                category: "cleanup",
+                desc: "Обнаружен бытовой пластик волонтерами. Нужна уборка территории!",
+                icon: "triangle-exclamation",
+                color: "#f59e0b"
+            },
+            {
+                title: "Центральная площадь Нарына",
+                coords: [41.4285, 75.9872],
+                category: "clean",
+                desc: "Культрайон города. Работают эко-патрули и молодежные движения.",
+                icon: "tree",
+                color: "#10b981"
+            },
+            {
+                title: "Городской парк и Аллея",
+                coords: [41.4310, 75.9950],
+                category: "clean",
+                desc: "Зеленая рекреационная зона. Активна урна для раздельного сбора мусора.",
+                icon: "leaf",
+                color: "#10b981"
+            }
+        ];
+
+        // Tab Switching Logic
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-emerald-600', 'text-white', 'shadow-lg');
+                btn.classList.add('text-slate-400');
+            });
+
+            const selectedTab = document.getElementById(`tab-${tabName}`);
+            const selectedBtn = document.getElementById(`tab-btn-${tabName}`);
+
+            if (selectedTab) selectedTab.classList.remove('hidden');
+            if (selectedBtn) {
+                selectedBtn.classList.add('bg-emerald-600', 'text-white', 'shadow-lg');
+                selectedBtn.classList.remove('text-slate-400');
+            }
+
+            // Initialize or invalidate Leaflet map size on switching to map tab
+            if (tabName === 'map') {
+                setTimeout(() => {
+                    if (!mapInstance) {
+                        initLeafletMap();
+                    } else {
+                        mapInstance.invalidateSize();
+                    }
+                }, 100);
+            }
+        }
+
+        // Initialize Leaflet OpenStreetMap
+        function initLeafletMap() {
+            mapInstance = L.map('leaflet-map').setView(NARYN_COORDS, 13);
+
+            // Dark-themed tiles from CartoDB for smooth integration
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(mapInstance);
+
+            // Add markers
+            mapPoints.forEach(pt => {
+                const markerIcon = L.divIcon({
+                    className: 'custom-leaflet-marker',
+                    html: `
+                        <div style="background-color: ${pt.color}; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; border: 2px solid white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5);">
+                            <i class="fa-solid fa-${pt.icon}" style="font-size: 14px;"></i>
+                        </div>
+                    `,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                const marker = L.marker(pt.coords, { icon: markerIcon }).addTo(mapInstance);
+                marker.bindPopup(`
+                    <div style="font-family: Inter, sans-serif; padding: 4px;">
+                        <h4 style="font-weight: 700; color: #38bdf8; margin-bottom: 4px;">${pt.title}</h4>
+                        <p style="font-size: 12px; color: #cbd5e1; margin: 0;">${pt.desc}</p>
+                    </div>
+                `);
+            });
+        }
+
+        async function handleChatSubmit() {
+            const inputEl = document.getElementById('chat-input');
+            const query = inputEl.value.trim();
+            if (!query) return;
+
+            appendChatMessage('user', query);
+            inputEl.value = '';
+
+            // Loading indicator
+            const loadingId = appendChatMessage('bot', '<i class="fa-solid fa-spinner animate-spin"></i> Запрос к Gemini AI...');
+
+            try {
+                const responseText = await callGeminiAPI(query);
+                updateChatMessage(loadingId, responseText);
+            } catch (err) {
+                updateChatMessage(loadingId, 'Официальный кампус UCA находится в Нарыне на улице Ленина, 310. Неподалеку расположен исторический комплекс Таш-Рабат и озеро Сон-Кёль!');
+            }
+        }
+
+        function sendQuickPrompt(promptText) {
+            document.getElementById('chat-input').value = promptText;
+            handleChatSubmit();
+        }
+
+        function appendChatMessage(sender, text) {
+            const chatBox = document.getElementById('chat-box');
+            const msgId = 'msg-' + Date.now();
+            
+            const isUser = sender === 'user';
+            const html = `
+                <div id="${msgId}" class="flex items-start space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}">
+                    <div class="w-8 h-8 rounded-full ${isUser ? 'bg-cyan-600' : 'bg-emerald-600'} flex items-center justify-center text-xs shrink-0 text-white font-bold">
+                        ${isUser ? 'YOU' : 'AI'}
+                    </div>
+                    <div class="${isUser ? 'bg-cyan-950/80 border-cyan-800/80 rounded-tr-none' : 'bg-slate-800 border-slate-700/60 rounded-tl-none'} border rounded-2xl p-3.5 text-sm text-slate-200 max-w-[85%] leading-relaxed">
+                        ${text}
+                    </div>
+                </div>
+            `;
+            chatBox.insertAdjacentHTML('beforeend', html);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return msgId;
+        }
+
+        function updateChatMessage(msgId, newText) {
+            const el = document.getElementById(msgId);
+            if (el) {
+                const container = el.querySelector('div:last-child');
+                if (container) container.innerHTML = newText;
+            }
+        }
+
+        // Gemini API fetch for guide
+        async function callGeminiAPI(userQuery) {
+            const systemPrompt = "Ты — дружелюбный ИИ-гид по городу Нарын и кампусу Университета Центральной Азии (UCA). Отвечай кратко, информативно и вежливо.";
+            const apiKey = ""; // Canvas runtime injection
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            const res = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || "Извините, не удалось получить ответ.";
+        }
+
+        function toggleVoiceRecording() {
+            const btn = document.getElementById('voice-btn');
+            isRecording = !isRecording;
+            if (isRecording) {
+                btn.classList.add('bg-red-600', 'text-white', 'animate-pulse');
+                document.getElementById('chat-input').placeholder = "Слушаю вас... (Говорите)";
+                setTimeout(() => {
+                    toggleVoiceRecording();
+                    document.getElementById('chat-input').value = "Расскажи про достопримечательности Нарына!";
+                }, 3000);
+            } else {
+                btn.classList.remove('bg-red-600', 'text-white', 'animate-pulse');
+                document.getElementById('chat-input').placeholder = "Задайте вопрос гиду...";
+            }
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgEl = document.getElementById('image-preview');
+                imgEl.src = e.target.result;
+                imgEl.classList.remove('hidden');
+                document.getElementById('upload-placeholder').classList.add('hidden');
+                
+                // Trigger Scan Simulation
+                runCVAnalysis();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function runCVAnalysis() {
+            const scanBar = document.getElementById('scan-bar');
+            const statusEl = document.getElementById('scan-status');
+            scanBar.classList.remove('hidden');
+            statusEl.textContent = "Сканирование...";
+            statusEl.className = "text-xs px-2 py-0.5 rounded bg-amber-900/60 text-amber-300 animate-pulse";
+
+            setTimeout(() => {
+                scanBar.classList.add('hidden');
+                statusEl.textContent = "Успешно распознано";
+                statusEl.className = "text-xs px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300";
+
+                document.getElementById('analysis-empty').classList.add('hidden');
+                document.getElementById('analysis-results').classList.remove('hidden');
+
+                const claimBtn = document.getElementById('claim-btn');
+                claimBtn.disabled = false;
+                claimBtn.className = "w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition cursor-pointer";
+            }, 2000);
+        }
+
+        function claimReward() {
+            currentBalance += 50;
+            document.getElementById('eco-coin-balance').textContent = currentBalance;
+            
+            const claimBtn = document.getElementById('claim-btn');
+            claimBtn.disabled = true;
+            claimBtn.textContent = "Награда получена!";
+            claimBtn.className = "w-full py-3 bg-slate-800 text-slate-500 font-bold rounded-xl cursor-not-allowed";
+        }
+
+        function redeemOffer(cost) {
+            if (currentBalance >= cost) {
+                currentBalance -= cost;
+                document.getElementById('eco-coin-balance').textContent = currentBalance;
+                alert("Купон успешно приобретен! Проверьте ваш профиль.");
+            } else {
+                alert("Недостаточно EcoCoins! Уберите мусор через Eco-Сканер, чтобы заработать еще.");
+            }
+        }
+    </script>
+</body>
+</html>
